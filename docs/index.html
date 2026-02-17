@@ -33,7 +33,8 @@
 <main class="wrap">
   <section class="panel">
     <div class="tabs" role="tablist" aria-label="Main views">
-      <button class="tab active" data-tab="overview">Overview</button>
+      <button class="tab active" data-tab="guide">How to use</button>
+      <button class="tab" data-tab="overview">Overview</button>
       <button class="tab" data-tab="viz">2D Embeddings</button>
       <button class="tab" data-tab="ranking">Pairwise Ranking</button>
       <button class="tab" data-tab="schedule">Oral Schedule</button>
@@ -55,7 +56,68 @@
     <div id="errors" class="errors"></div>
   </section>
 
-  <section id="tab-overview" class="tab-panel active">
+  <section id="tab-guide" class="tab-panel active">
+    <section class="panel">
+      <div class="h2">Welcome: EACL 2026 Personal Planning Workspace</div>
+      <div class="hint">Main goal: help participants explore papers, discover semantic clusters, build preference rankings, and turn those preferences into a practical conference plan.</div>
+      <div class="small" style="margin-top:10px;line-height:1.65;">
+        <strong>Recommended workflow:</strong><br/>
+        1) Start in <strong>Overview</strong> to understand papers in session context.<br/>
+        2) Use <strong>2D Embeddings</strong> to discover clusters and similar papers.<br/>
+        3) Use <strong>Pairwise Ranking</strong> to learn your preferences quickly.<br/>
+        4) Use <strong>Oral Schedule</strong> to choose in-person room priorities.<br/>
+        5) Use <strong>Posters</strong> to get a ranked shortlist to visit.
+      </div>
+    </section>
+
+    <section class="panel">
+      <div class="h2">Venue and Program Structure (from loaded CSV)</div>
+      <div class="small" style="line-height:1.7;">
+        <strong>Conference days:</strong> Wed. Mar 25, Thur. Mar 26, Fri. Mar 27.<br/>
+        <strong>Main time blocks:</strong> 09:00–10:30, 11:00–12:30, 11:30–13:00, 14:30–16:00, 16:30–18:00.<br/>
+        <strong>In-person rooms:</strong> SALLE LE LIXUS, SALLE LE RIAD, SALLE LA PALMERAIE, SALLE WALILI, SALLE Le Chellah, Pavillon DE RABAT.<br/>
+        <strong>Poster area:</strong> POSTER HALL.<br/>
+        <strong>Virtual entries:</strong> ZOOM / Attendance Type = Virtual (excluded from in-person planning shortcuts).
+      </div>
+    </section>
+
+    <section class="panel">
+      <div class="h2">Function Guide (all tabs and controls)</div>
+      <div class="small" style="line-height:1.75;">
+        <strong>Top controls:</strong><br/>
+        - <strong>Load CSV / Auto-load CSV:</strong> load conference program data.<br/>
+        - <strong>Reset ranking:</strong> clear pairwise preference history.<br/>
+        - <strong>Import/Export state:</strong> save/restore ranking progress.<br/>
+        - <strong>Export scored CSV:</strong> write rankings (`pref_mu`, `pref_rank`, uncertainty) back to CSV.<br/><br/>
+
+        <strong>Overview tab:</strong><br/>
+        - Navigate papers in Date → Session → Location hierarchy.<br/>
+        - Filter by search text, category, session, and location.<br/>
+        - Use this to inspect individual papers in their session context.<br/><br/>
+
+        <strong>2D Embeddings tab:</strong><br/>
+        - Visualize semantic clusters with PCA / t-SNE / UMAP.<br/>
+        - Use search highlight/filter, oral-only shortcut, and sampling.<br/>
+        - Click papers to inspect nearest neighbors and related titles.<br/><br/>
+
+        <strong>Pairwise Ranking tab:</strong><br/>
+        - Compare paper pairs with Active / Random / Bubble / Resolve-ties modes.<br/>
+        - Use A/B, Strong A/B, Both, Neither, Skip, Undo actions.<br/>
+        - Build a personalized preference ranking from lightweight decisions.<br/><br/>
+
+        <strong>Oral Schedule tab:</strong><br/>
+        - Produces primary + backup room suggestions per time slot.<br/>
+        - Combines learned ranking with topic-match signals.<br/>
+        - Focuses on in-person oral-session decision support.<br/><br/>
+
+        <strong>Posters tab:</strong><br/>
+        - Groups poster papers by date/time blocks.<br/>
+        - Sorts each block by your current rank to prioritize visits.
+      </div>
+    </section>
+  </section>
+
+  <section id="tab-overview" class="tab-panel">
     <section class="panel">
       <div class="panel-row">
         <div class="h2">Program Overview</div>

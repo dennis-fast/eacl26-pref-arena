@@ -2,6 +2,66 @@
 
 Interactive browser app to rank EACL papers, inspect a 2D embedding projection, and build oral/poster schedules.
 
+## Intended use
+
+This workspace is designed to help EACL 2026 participants:
+
+- explore individual papers in session context,
+- explore clusters of semantically similar papers via embedding projections,
+- learn personal relevance preferences through pairwise ranking,
+- generate a practical in-person oral session plan,
+- produce a ranked poster shortlist to visit.
+
+## Venue structure (as represented in the loaded EACL 2026 program CSV)
+
+- **Conference days:** Wed. Mar 25, Thur. Mar 26, Fri. Mar 27
+- **Main time blocks:** 09:00–10:30, 11:00–12:30, 11:30–13:00, 14:30–16:00, 16:30–18:00
+- **In-person rooms:** SALLE LE LIXUS, SALLE LE RIAD, SALLE LA PALMERAIE, SALLE WALILI, SALLE Le Chellah, Pavillon DE RABAT
+- **Poster area:** POSTER HALL
+- **Virtual entries:** ZOOM / Attendance Type = Virtual
+
+The app uses this structure to organize papers and to derive planning recommendations per day, session, room, and time slot.
+
+## Tab-by-tab guide
+
+- **Overview**
+   - Purpose: inspect singular papers in conference context.
+   - View: grouped by Date → Session → Location.
+   - Typical use: scan sessions, then filter/search by topic, session, and location.
+   - Includes: global search, category/session/location filters, wins-only visibility filter.
+
+- **2D Embeddings**
+   - Purpose: inspect paper clusters by semantic similarity.
+   - View: precomputed PCA/t-SNE/UMAP projections in static mode.
+   - Typical use: find neighborhoods of related papers, run search highlight/filter, inspect nearest neighbors.
+   - Includes: method switch, projection controls, session/all mode, oral-only shortcut, sampling, CSV export of selected/projected points.
+
+- **Pairwise Ranking**
+   - Purpose: convert your preferences into a personalized ranking.
+   - View: two-paper arena with active/random/bubble/tie-resolution pairing modes.
+   - Typical use: rate pairs quickly and refine the live top-paper list.
+   - Includes: A/B/Strong/Both/Neither/Skip/Undo actions, global pairing priorities (`muPriority`, `resolveTieNMatches`), top-N bubble focus.
+
+- **Oral Schedule**
+   - Purpose: support attendance planning for in-person oral sessions.
+   - View: recommendations per slot (primary + backup room) using ranking and topic-match signals.
+   - Typical use: decide where to go each time block with preference-aware guidance.
+   - Includes: slot-level ranking-aware room choices and backup alternatives.
+
+- **Posters**
+   - Purpose: prioritize poster exploration.
+   - View: poster sessions grouped by date/time with papers sorted by your current rank.
+   - Typical use: create a high-value poster route for your available time.
+   - Includes: rank-first ordering to quickly identify highest-value poster stops.
+
+## Landing page / guide tab
+
+The web app starts with a **How to use** tab that explains:
+
+- intended workflow across all tabs,
+- venue/session structure used for planning,
+- each function in the app including top-bar data/state controls.
+
 ## GitHub sharing model
 
 This project is prepared for **GitHub Pages** under:
