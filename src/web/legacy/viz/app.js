@@ -1,5 +1,9 @@
 const state = {
   meta: null,
+  staticBundle: null,
+  staticMetaById: new Map(),
+  staticCoordsByMethod: {},
+  staticNeighbors: {},
   filters: {},
   currentPoints: [],
   selectedPoints: [],
@@ -16,6 +20,13 @@ const state = {
 };
 
 const FILTER_COLUMNS = ['Type of Presentation', 'Attendance Type', 'Room Location', 'Session'];
+const COLUMN_TO_FIELD = {
+  'Type of Presentation': 'type_presentation',
+  'Attendance Type': 'attendance_type',
+  'Room Location': 'room_location',
+  Session: 'session',
+};
+const STATIC_DATA_URL = '../data/projection_pca.json';
 const VIEW_STATE_KEY = 'eacl2026_embedding_dashboard_state';
 const RANKING_STORAGE_KEY = 'eacl_pref_arena_state_v1';
 const DEFAULT_MU = 1500;
@@ -102,6 +113,261 @@ async function fetchJSON(url, options = {}) {
     throw new Error(data.error || `Request failed: ${res.status}`);
   }
   return data;
+}
+
+function parseSearchTerms(searchText) {
+  if (!searchText) return [];
+  return searchText
+    .split(';')
+    .map((term) => term.trim())
+    .filter((term) => term.length > 0);
+}
+
+function titleMatchesTerms(title, terms) {
+  if (!terms || terms.length === 0) return false;
+  const lowered = String(title || '').toLowerCase();
+  return terms.some((term) => lowered.includes(term.toLowerCase()));
+}
+
+function seededRandom(seed) {
+  let t = Number(seed) || 42;
+  return () => {
+    t += 0x6D2B79F5;
+    let x = Math.imul(t ^ (t >>> 15), 1 | t);
+    x ^= x + Math.imul(x ^ (x >>> 7), 61 | x);
+    return ((x ^ (x >>> 14)) >>> 0) / 4294967296;
+  };
+}
+
+function sampleArray(values, n, rng) {
+  if (n >= values.length) return [...values];
+  const arr = [...values];
+  for (let idx = arr.length - 1; idx > 0; idx -= 1) {
+    const j = Math.floor(rng() * (idx + 1));
+    [arr[idx], arr[j]] = [arr[j], arr[idx]];
+  }
+  return arr.slice(0, n);
+}
+
+function sampleRecords(records, sampleCfg, randomState) {
+  const enabled = !!sampleCfg?.enabled;
+  const maxPoints = Number(sampleCfg?.max_points ?? records.length);
+  const strategy = String(sampleCfg?.strategy || 'random');
+  if (!enabled || maxPoints <= 0 || records.length <= maxPoints) return [...records];
+
+  const rng = seededRandom(randomState);
+  if (strategy !== 'stratified_by_session') {
+    return sampleArray(records, maxPoints, rng);
+  }
+
+  const bySession = new Map();
+  records.forEach((rec) => {
+    const key = rec.session || '';
+    if (!bySession.has(key)) bySession.set(key, []);
+    bySession.get(key).push(rec);
+  });
+
+  const sampled = [];
+  bySession.forEach((group) => {
+    const frac = group.length / records.length;
+    const nTake = Math.min(group.length, Math.max(1, Math.round(maxPoints * frac)));
+    sampled.push(...sampleArray(group, nTake, rng));
+  });
+
+  if (sampled.length > maxPoints) {
+    return sampleArray(sampled, maxPoints, rng);
+  }
+  if (sampled.length < maxPoints) {
+    const sampledSet = new Set(sampled.map((item) => item.paper_id));
+    const remaining = records.filter((item) => !sampledSet.has(item.paper_id));
+    const fill = sampleArray(remaining, Math.min(maxPoints - sampled.length, remaining.length), rng);
+    return [...sampled, ...fill];
+  }
+  return sampled;
+}
+
+function buildStaticStores(bundle) {
+  const methods = bundle?.methods || {};
+  const pointsMeta = bundle?.points_meta || [];
+
+  state.staticMetaById = new Map();
+  pointsMeta.forEach((point) => {
+    state.staticMetaById.set(String(point.paper_id), {
+      paper_id: String(point.paper_id),
+      title: String(point.title || ''),
+      session: String(point.session || ''),
+      room_location: String(point.room_location || ''),
+      type_presentation: String(point.type_presentation || ''),
+      attendance_type: String(point.attendance_type || ''),
+    });
+  });
+
+  if (state.staticMetaById.size === 0 && Array.isArray(bundle?.points)) {
+    bundle.points.forEach((point) => {
+      state.staticMetaById.set(String(point.paper_id), {
+        paper_id: String(point.paper_id),
+        title: String(point.title || ''),
+        session: String(point.session || ''),
+        room_location: String(point.room_location || ''),
+        type_presentation: String(point.type_presentation || ''),
+        attendance_type: String(point.attendance_type || ''),
+      });
+    });
+  }
+
+  const coordsByMethod = {};
+  ['pca', 'tsne', 'umap'].forEach((method) => {
+    coordsByMethod[method] = new Map();
+    if (Array.isArray(methods[method])) {
+      methods[method].forEach((row) => {
+        coordsByMethod[method].set(String(row.paper_id), {
+          x: Number(row.x),
+          y: Number(row.y),
+        });
+      });
+    }
+  });
+
+  if (coordsByMethod.pca.size === 0 && Array.isArray(bundle?.points)) {
+    bundle.points.forEach((row) => {
+      coordsByMethod.pca.set(String(row.paper_id), {
+        x: Number(row.x),
+        y: Number(row.y),
+      });
+    });
+  }
+
+  state.staticCoordsByMethod = coordsByMethod;
+  state.staticNeighbors = bundle?.neighbors && typeof bundle.neighbors === 'object' ? bundle.neighbors : {};
+}
+
+function buildMetaFromStatic(bundle) {
+  const values = {
+    'Type of Presentation': new Set(),
+    'Attendance Type': new Set(),
+    'Room Location': new Set(),
+    Session: new Set(),
+  };
+
+  state.staticMetaById.forEach((row) => {
+    values['Type of Presentation'].add(row.type_presentation);
+    values['Attendance Type'].add(row.attendance_type);
+    values['Room Location'].add(row.room_location);
+    values.Session.add(row.session);
+  });
+
+  const filters = {
+    'Type of Presentation': sortedUnique([...(bundle?.filters?.['Type of Presentation'] || values['Type of Presentation'])]),
+    'Attendance Type': sortedUnique([...(bundle?.filters?.['Attendance Type'] || values['Attendance Type'])]),
+    'Room Location': sortedUnique([...(bundle?.filters?.['Room Location'] || values['Room Location'])]),
+    Session: sortedUnique([...(bundle?.filters?.Session || values.Session)]),
+  };
+
+  return {
+    n_total: state.staticMetaById.size,
+    filters,
+    available_sessions: sortedUnique(bundle?.available_sessions || filters.Session),
+    default_columns: {
+      title: 'title',
+      paper_id: 'paper_id',
+      color_by_all: 'Session',
+      color_by_session: 'Room Location',
+    },
+  };
+}
+
+async function loadStaticBundle() {
+  const bundle = await fetchJSON(STATIC_DATA_URL);
+  state.staticBundle = bundle;
+  buildStaticStores(bundle);
+  return buildMetaFromStatic(bundle);
+}
+
+function projectLocally(payload) {
+  const started = performance.now();
+  const method = String(payload?.method || 'pca').toLowerCase();
+  const mode = String(payload?.mode || 'all').toLowerCase();
+  const sessionValue = payload?.session_value;
+  const searchText = String(payload?.search_text || '').trim();
+  const searchMode = String(payload?.search_mode || 'highlight').toLowerCase();
+  const terms = parseSearchTerms(searchText);
+
+  let records = [...state.staticMetaById.values()];
+  const filters = payload?.filters || {};
+
+  FILTER_COLUMNS.forEach((col) => {
+    if (!Array.isArray(filters[col])) return;
+    const allowed = new Set(filters[col].map((value) => String(value)));
+    const field = COLUMN_TO_FIELD[col];
+    records = records.filter((row) => allowed.has(String(row[field] || '')));
+  });
+
+  if (mode === 'session' && sessionValue) {
+    records = records.filter((row) => row.session === String(sessionValue));
+  }
+
+  if (payload?.oral_only) {
+    records = records.filter((row) => {
+      const oral = /\boral\b/i.test(String(row.type_presentation || ''));
+      const inPerson = String(row.attendance_type || '').trim().toLowerCase() === 'in-person';
+      return oral && inPerson;
+    });
+  }
+
+  if (terms.length > 0 && searchMode === 'filter') {
+    records = records.filter((row) => titleMatchesTerms(row.title, terms));
+  }
+
+  const nFiltered = records.length;
+  const randomState = Number(payload?.params?.random_state ?? 42);
+  const sampled = sampleRecords(records, payload?.sample || {}, randomState);
+  const fallbackMethod = state.staticCoordsByMethod.pca?.size ? 'pca' : method;
+  const coordsMap = state.staticCoordsByMethod[method]?.size ? state.staticCoordsByMethod[method] : state.staticCoordsByMethod[fallbackMethod];
+  const colorField = mode === 'all' ? 'session' : 'room_location';
+
+  const points = sampled
+    .map((row) => {
+      const coords = coordsMap?.get(row.paper_id);
+      if (!coords) return null;
+      const matched = terms.length > 0 ? titleMatchesTerms(row.title, terms) : false;
+      return {
+        paper_id: row.paper_id,
+        x: Number(coords.x),
+        y: Number(coords.y),
+        title: row.title,
+        session: row.session,
+        room_location: row.room_location,
+        type_presentation: row.type_presentation,
+        attendance_type: row.attendance_type,
+        color_value: row[colorField] || '',
+        matched,
+      };
+    })
+    .filter(Boolean);
+
+  const legendValues = sortedUnique(points.map((point) => point.color_value));
+  const computeMs = Math.round((performance.now() - started) * 100) / 100;
+  return {
+    points,
+    color_by: mode === 'all' ? 'Session' : 'Room Location',
+    legend_values: legendValues,
+    stats: {
+      n_total: state.staticMetaById.size,
+      n_filtered: nFiltered,
+      n_returned: points.length,
+      compute_ms: computeMs,
+    },
+  };
+}
+
+function neighborsLocally(paperId, k, currentIds) {
+  const all = Array.isArray(state.staticNeighbors?.[paperId]) ? state.staticNeighbors[paperId] : [];
+  const currentSet = Array.isArray(currentIds) && currentIds.length > 0 ? new Set(currentIds.map((id) => String(id))) : null;
+  let rows = all;
+  if (currentSet) {
+    rows = rows.filter((row) => currentSet.has(String(row.paper_id)));
+  }
+  return rows.slice(0, Math.max(1, Number(k) || 10));
 }
 
 function updateMethodParamVisibility() {
@@ -547,15 +813,12 @@ async function refreshNeighbors() {
   if (!state.currentClickedPaperId) return;
   const k = Number(qs('nn-k').value || 10);
   try {
-    const res = await fetchJSON('/api/nn', {
-      method: 'POST',
-      body: JSON.stringify({
-        paper_id: state.currentClickedPaperId,
-        k,
-        current_ids: state.currentPoints.map((p) => p.paper_id),
-      }),
-    });
-    renderNeighbors(res.neighbors || []);
+    const neighbors = neighborsLocally(
+      state.currentClickedPaperId,
+      k,
+      state.currentPoints.map((p) => p.paper_id)
+    );
+    renderNeighbors(neighbors || []);
   } catch (err) {
     setStatus(err.message, true);
   }
@@ -742,10 +1005,7 @@ async function runProjection() {
   setLoading(true);
   try {
     const payload = buildProjectPayload();
-    const data = await fetchJSON('/api/project', {
-      method: 'POST',
-      body: JSON.stringify(payload),
-    });
+    const data = projectLocally(payload);
 
     state.currentPoints = data.points || [];
     state.selectedPoints = getHighlightedRows();
@@ -754,7 +1014,7 @@ async function runProjection() {
     renderStats(data.stats);
     saveViewState();
 
-    setStatus(`Projection complete (${payload.method.toUpperCase()}).`);
+    setStatus(`Projection complete (${payload.method.toUpperCase()}) — static mode.`);
   } catch (err) {
     setStatus(err.message, true);
   } finally {
@@ -809,7 +1069,7 @@ function wireEvents() {
 }
 
 async function initMeta() {
-  const meta = await fetchJSON('/api/meta');
+  const meta = await loadStaticBundle();
   state.meta = meta;
   initColorMaps(meta);
 

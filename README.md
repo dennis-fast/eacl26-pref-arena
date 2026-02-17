@@ -114,7 +114,8 @@ Repository settings requirement:
 - Overview grouped by date/session/location with rank-aware sorting
 - Oral schedule recommendations (topic match + ranking signals)
 - Posters grouped by date/time and sorted by rank
-- Static 2D embedding projection (precomputed PCA)
+- Static 2D embedding projection (precomputed PCA/t-SNE/UMAP)
+- Backend-free `docs/viz` interaction: filtering, search highlight/filter, sampling, nearest neighbors from static artifact
 
 ## CSV columns (minimum)
 
@@ -129,3 +130,30 @@ Recommended for scheduling and filtering:
 - `Session`, `Room Location`, `Session Date`, `Session time`
 - `Type of Presentation`, `Attendance Type`
 - `category_primary`, `category_secondary`, `keywords`
+
+## Backend-free visualization notes
+
+The visualization page (`docs/viz`) no longer requires `/api/meta`, `/api/project`, or `/api/nn`.
+It loads from:
+
+- `docs/data/projection_pca.json`
+
+The artifact now includes:
+
+- `points_meta`
+- `methods` (`pca`, `tsne`, `umap`)
+- `neighbors`
+- filter/session metadata used by the UI
+
+In Flask mode, static docs data is also served at:
+
+- `/data/<filename>`
+
+which enables unified-app CSV auto-load (`/data/EACL_2026_program_categorized.csv`) without needing GitHub Pages.
+
+## Testing
+
+`make test` uses unittest discovery and runs all `test_*.py` modules under `tests/`, including:
+
+- smoke tests (`tests/test_smoke.py`)
+- static viz contract + integration checks (`tests/test_static_viz_contract.py`)

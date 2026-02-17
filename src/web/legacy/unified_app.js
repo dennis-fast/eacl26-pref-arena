@@ -3,7 +3,7 @@ import { DEFAULT_MU, DEFAULT_SIGMA, MIN_SIGMA, SIGMA_DECAY, updatePair } from ".
 import { chooseNextPair } from "./selector.js";
 import { saveState, loadState, clearState } from "./storage.js";
 
-const AUTO_FILENAME = "EACL_2026_program_categorized.csv";
+const AUTO_FILENAME = "./data/EACL_2026_program_categorized.csv";
 const BASE_K = 32;
 const JOINT_FEEDBACK_SCALE = 0.45;
 const RANKING_STORAGE_KEY = "eacl_pref_arena_state_v1";

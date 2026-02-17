@@ -16,6 +16,7 @@ from sklearn.decomposition import PCA
 from sklearn.manifold import TSNE
 from sklearn.preprocessing import normalize
 from config.paths import (
+    DOCS_DATA_DIR,
     GENERATED_SCORED_CSV,
     GENERATED_STATE_JSON,
     LEGACY_STATIC_DIR,
@@ -371,6 +372,11 @@ def root():
 @app.get("/viz")
 def viz_root():
     return send_from_directory(LEGACY_STATIC_DIR, "index.html")
+
+
+@app.get("/data/<path:filename>")
+def data_static(filename: str):
+    return send_from_directory(DOCS_DATA_DIR, filename)
 
 
 @app.get("/api/meta")

@@ -31,4 +31,4 @@ smoke-flask:
 	$(PYTHON) -c "from server import app; c=app.test_client(); print('root', c.get('/').status_code); print('meta', c.get('/api/meta').status_code); print('topic', c.post('/api/topic_match', json={'ratings': {}, 'slots': []}).status_code)"
 
 test:
-	$(PYTHON) -m unittest tests/test_smoke.py -v
+	$(PYTHON) -m unittest discover -s tests -p "test_*.py" -v
